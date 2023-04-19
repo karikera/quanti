@@ -10,7 +10,7 @@ Quanti the [color quantization](https://en.wikipedia.org/wiki/Color_quantization
 
 ```ts
 const Jimp = require("jimp");
-const quanti = require("./quanti");
+const quanti = require("quanti");
 
 (async () => {
   const image = await Jimp.read("./image/sample.png");
