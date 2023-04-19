@@ -21,7 +21,7 @@ const quanti = require("quanti");
 })();
 ```
 
-### Refernce
+### Reference
 
 ```ts
 // ArrayLike = Array<number>, Uint8Array, any other number indexed object with length
