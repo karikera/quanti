@@ -1,0 +1,5 @@
+.vscode
+*.ts
+!*.d.ts
+*.map
+image

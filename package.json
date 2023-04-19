@@ -1,0 +1,25 @@
+{
+  "name": "quanti",
+  "version": "1.0.0",
+  "description": "",
+  "main": "quanti.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/karikera/quanti.git"
+  },
+  "keywords": [
+    "image",
+    "quantize",
+    "color"
+  ],
+  "author": "",
+  "license": "ISC",
+  "types": "./quanti.d.ts",
+  "devDependencies": {
+    "jimp": "^0.22.7",
+    "prettier": "^2.8.7"
+  }
+}
