@@ -29,7 +29,7 @@ function average(data: Uint8Array) {
   const image = await Jimp.read("./image/sample.png");
   const data = image.bitmap.data;
   const orig = average(data);
-  const palette = quanti(data, 16, 4);
+  const palette = quanti(data, 8, 4);
   palette.ditherProcess(data, image.getWidth());
   const conv = average(data);
   await image.writeAsync("./image/sample_quantized.png");

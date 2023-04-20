@@ -2,7 +2,7 @@
 
 Quanti the [color quantization](https://en.wikipedia.org/wiki/Color_quantization) library
 
-| Original                        | Quantized to 16 colors                     |
+| Original                        | Quantized to 8 colors                      |
 | ------------------------------- | ------------------------------------------ |
 | ![original](./image/sample.png) | ![quantized](./image/sample_quantized.png) |
 
@@ -15,7 +15,7 @@ const quanti = require("quanti");
 (async () => {
   const image = await Jimp.read("./image/sample.png");
   const data = image.bitmap.data;
-  const palette = quanti(data, 16, 4);
+  const palette = quanti(data, 8, 4);
   palette.ditherProcess(data, image.getWidth());
   await image.writeAsync("./image/sample_quantized.png");
 })();
