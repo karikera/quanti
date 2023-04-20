@@ -4,6 +4,7 @@
     "target": "ES2015",
     "strict": true,
     "module": "CommonJS",
-    "sourceMap": true
+    "sourceMap": true,
+    "alwaysStrict": true
   }
 }

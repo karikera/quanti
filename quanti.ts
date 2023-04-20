@@ -1,7 +1,7 @@
 class ColorGroup {
-  public readonly axisLength: number;
-  private readonly axis: number;
-  private readonly axisMin: number;
+  public readonly lengthOfFarthest: number;
+  private readonly point1: number;
+  private readonly point2: number;
 
   constructor(
     public readonly colors: number[],
@@ -12,39 +12,25 @@ class ColorGroup {
     if (counts.length !== colors.length)
       throw Error("unexpected counts length");
 
-    // get min/max
-    const mins = new Int32Array(channelCount);
-    const maxs = new Int32Array(channelCount);
-
-    const pixel = colors[0];
-    for (let i = 0; i < channelCount; i++) {
-      const v = (pixel >> (i << 3)) & 0xff;
-      maxs[i] = mins[i] = v;
-    }
-    for (const pixel of colors) {
-      for (let c = 0; c < channelCount; c++) {
-        const v = (pixel >> (c << 3)) & 0xff;
-        if (mins[c] > v) {
-          mins[c] = v;
-        } else if (maxs[c] < v) {
-          maxs[c] = v;
+    function findFarthest(axis: number): number {
+      const n = colors.length;
+      let farthest = 0;
+      let distMax = -1;
+      for (let i = 0; i < n; i++) {
+        const color = colors[i];
+        const dist = colorDistanceInt(axis, color);
+        if (dist > distMax) {
+          farthest = color;
+          distMax = dist;
         }
       }
+      return farthest;
     }
 
-    // find longest
-    let longest = 0;
-    let longestLen = maxs[0] - mins[0];
-    for (let i = 1; i < longestLen; i++) {
-      const len = maxs[i] - mins[i];
-      if (len > longestLen) {
-        longest = i;
-        longestLen = len;
-      }
-    }
-    this.axisLength = longestLen;
-    this.axis = longest;
-    this.axisMin = mins[longest];
+    // get min/max
+    this.point1 = findFarthest(this.colors[0]);
+    this.point2 = findFarthest(this.point1);
+    this.lengthOfFarthest = colorDistanceInt(this.point1, this.point2);
   }
 
   calculateAverage(out: Uint8Array): void {
@@ -57,39 +43,62 @@ class ColorGroup {
       total += count;
       for (let c = 0; c < this.channelCount; c++) {
         const v = (pixel >> (c << 3)) & 0xff;
-        colorSum[c] += v * count;
+        colorSum[c] += quanti.srgb_to_linear(v) * count;
       }
     }
     for (let i = 0; i < this.channelCount; i++) {
-      let c = colorSum[i] / total;
+      let c = Math.round(quanti.linear_to_srgb(colorSum[i] / total));
       if (c > 255) c = 255;
       out[i] = c;
     }
   }
 
   split(): [ColorGroup, ColorGroup] {
-    const axisShift = this.axis << 3;
-    const half = this.axisMin + this.axisLength / 2;
-    const g1: number[] = [];
-    const g2: number[] = [];
+    const channelCount = this.channelCount;
+    const center = new Array<number>(channelCount);
+    for (
+      let o = 0, c1 = this.point1, c2 = this.point2;
+      o < channelCount;
+      o++, c1 >>= 8, c2 >>= 8
+    ) {
+      center[o] = ((c1 & 0xff) + (c2 & 0xff)) / 2;
+    }
+
+    const vector = new Array(channelCount);
+    for (
+      let o = 0, c1 = this.point1, c2 = this.point2;
+      o < channelCount;
+      o++, c1 >>= 8, c2 >>= 8
+    ) {
+      vector[o] = ((c2 & 0xff) - (c1 & 0xff)) / 2;
+    }
+
     const c1: number[] = [];
     const c2: number[] = [];
+    const n1: number[] = [];
+    const n2: number[] = [];
     const n = this.colors.length;
     for (let i = 0; i < n; i++) {
       const color = this.colors[i];
       const count = this.counts[i];
-      const v = (color >> axisShift) & 0xff;
-      if (v < half) {
-        g1.push(color);
-        c1.push(count);
+
+      let dot = 0;
+      for (let c = 0; c < channelCount; c++) {
+        const shift = c << 3;
+        const rpos = ((color >> shift) & 0xff) - center[c];
+        dot += rpos * vector[c];
+      }
+      if (dot > 0) {
+        c1.push(color);
+        n1.push(count);
       } else {
-        g2.push(color);
-        c2.push(count);
+        c2.push(color);
+        n2.push(count);
       }
     }
     return [
-      new ColorGroup(g1, c1, this.channelCount),
-      new ColorGroup(g2, c2, this.channelCount),
+      new ColorGroup(c1, n1, channelCount),
+      new ColorGroup(c2, n2, channelCount),
     ];
   }
 
@@ -104,6 +113,7 @@ class ColorGroup {
       for (let c = 0; c < channelCount; c++) {
         v |= pixels[i++] << (c << 3);
       }
+
       const count = out.get(v);
       if (count !== undefined) count[0]++;
       else out.set(v, [1]);
@@ -116,20 +126,6 @@ class ColorGroup {
     }
     return new ColorGroup(colors, counts, channelCount);
   }
-}
-
-function colorDistance(
-  pixel: ArrayLike<number>,
-  offset: number,
-  pcolor: ArrayLike<number>
-): number {
-  const n = pcolor.length;
-  let v = 0;
-  for (let i = 0; i !== n; i++) {
-    const d = pixel[offset++] - pcolor[i];
-    v += d * d;
-  }
-  return v;
 }
 
 function quanti(
@@ -158,20 +154,24 @@ function quanti(
   while (groups.length < colorCount) {
     let group = groups[0];
     let groupIdx = 0;
-    let maxLen = group.axisLength;
+    let maxLen = group.lengthOfFarthest;
     for (let i = 1; i < groups.length; i++) {
-      if (group.axisLength > maxLen) {
-        group = groups[i];
+      const g = groups[i];
+      if (g.lengthOfFarthest > maxLen) {
+        group = g;
         groupIdx = i;
-        maxLen = group.axisLength;
+        maxLen = group.lengthOfFarthest;
       }
     }
-    if (maxLen === 0) break; // no more colors
+    if (maxLen === 0) {
+      break; // no more colors
+    }
     const last = groups.pop();
     if (groupIdx !== groups.length) groups[groupIdx] = last!;
     groups.push(...group.split());
   }
 
+  colorCount = groups.length;
   const fullArray = new Uint8Array(colorCount * channelCount);
   const n = fullArray.length;
   const palette8: Uint8Array[] = [];
@@ -190,6 +190,8 @@ interface WritableArrayLike<T> {
   [key: number]: T;
 }
 
+const ERROR_LIMIT = 100;
+
 namespace quanti {
   export class Palette<Color extends ArrayLike<number> = Uint8Array> {
     constructor(public readonly palette: Color[]) {
@@ -198,11 +200,12 @@ namespace quanti {
     map(color: ArrayLike<number>, offset: number = 0): Color {
       const palette = this.palette;
       let target = palette[0];
-      let distance = colorDistance(color, offset, target);
+      const channelCount = target.length;
+      let distance = colorDistanceArray(color, offset, target, channelCount);
       const n = palette.length;
       for (let i = 1; i < n; i++) {
         const p = palette[i];
-        const dist = colorDistance(color, offset, p);
+        const dist = colorDistanceArray(color, offset, p, channelCount);
         if (dist < distance) {
           distance = dist;
           target = p;
@@ -229,53 +232,54 @@ namespace quanti {
       let errors1 = array.subarray(0, widthBytes);
       let errors2 = array.subarray(widthBytes);
 
-      const TOO_HIGH = 256;
+      const targetSgrb = new Float32Array(cc);
+      const targetLinear = new Float32Array(cc);
 
       const lastLine = n - widthBytes;
       for (let i = 0; i < n; ) {
         const bottomExists = i < lastLine;
-        for (let x = 0; x < widthBytes; x++) {
-          errors1[x] += data[i++];
-        }
-        i -= widthBytes;
         for (let x = 0; x < widthBytes; ) {
-          const mapped = this.map(errors1, x);
+          for (let c = 0; c < cc; c++, x++, i++) {
+            const linear = errors1[x] + srgb_to_linear(data[i]);
+            targetLinear[c] = linear;
+            targetSgrb[c] = linear <= 0 ? 0 : linear_to_srgb(linear);
+          }
+          i -= cc;
+          x -= cc;
+
+          const mappedSrgb = this.map(targetSgrb);
           const leftExists = x === 0;
           const rightExists = x < widthBytes;
-          for (let c = 0; c < cc; c++) {
-            const ocolor = errors1[x];
-            const ncolor = mapped[c];
-            data[i++] = ncolor;
-            let error = ocolor - ncolor;
+          for (let c = 0; c < cc; c++, x++, i++) {
+            data[i] = mappedSrgb[c];
+            let error = targetLinear[c] - srgb_to_linear(mappedSrgb[c]);
 
             // limit too high error
-            if (error < -TOO_HIGH) {
-              error = -TOO_HIGH;
-            } else if (error > 255 + TOO_HIGH) {
-              error = 255 + TOO_HIGH;
+            if (error < -ERROR_LIMIT) {
+              error = -ERROR_LIMIT;
+            } else if (error > ERROR_LIMIT) {
+              error = ERROR_LIMIT;
             }
 
             // Floyd–Steinberg dithering
 
             // right
+            error /= 16;
             if (rightExists) {
-              errors1[x + cc] += (error * 7) / 16;
+              errors1[x + cc] += error * 7;
             }
             // bottom
             if (bottomExists) {
-              errors2[x] += (error * 5) / 16;
-
+              errors2[x] += error * 5;
               // right-bottom
               if (rightExists) {
-                errors2[x + cc] += (error * 1) / 16;
+                errors2[x + cc] += error;
               }
-
               // left-bottom
               if (leftExists) {
-                errors2[x - cc] += (error * 1) / 16;
+                errors2[x - cc] += error * 3;
               }
             }
-            x++;
           }
         }
 
@@ -286,6 +290,40 @@ namespace quanti {
       }
     }
   }
+  export function srgb_to_linear(n: number): number {
+    n /= 255;
+    if (n <= 0.04045) return n / 12.92;
+    else return Math.pow((n + 0.055) / 1.055, 2.4);
+  }
+
+  export function linear_to_srgb(n: number): number {
+    if (n < 0.0031308) n *= 12.92;
+    else n = Math.pow(n, 1 / 2.4) * 1.055 - 0.055;
+    return n * 255;
+  }
 }
 
 export = quanti;
+
+function colorDistanceInt(color1: number, color2: number) {
+  const a = (color1 & 0xff) - (color2 & 0xff);
+  const b = ((color1 >> 8) & 0xff) - ((color2 >> 8) & 0xff);
+  const c = ((color1 >> 16) & 0xff) - ((color2 >> 16) & 0xff);
+  const d = (color1 >>> 24) - (color2 >>> 24);
+  return a * a + b * b + c * c + d * d;
+}
+function colorDistanceArray(
+  pixels: ArrayLike<number>,
+  offset: number,
+  checkColor: ArrayLike<number>,
+  channelCount: number
+): number {
+  let v = pixels[offset++] - checkColor[0];
+  v *= v;
+  let i = 1;
+  while (i !== channelCount) {
+    const d = pixels[offset++] - checkColor[i++];
+    v += d * d;
+  }
+  return v;
+}

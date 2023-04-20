@@ -1,10 +1,10 @@
 ## Quanti
 
+Quanti the [color quantization](https://en.wikipedia.org/wiki/Color_quantization) library
+
 | Original                        | Quantized to 16 colors                     |
 | ------------------------------- | ------------------------------------------ |
 | ![original](./image/sample.png) | ![quantized](./image/sample_quantized.png) |
-
-Quanti the [color quantization](https://en.wikipedia.org/wiki/Color_quantization) library
 
 ### Example with Jimp
 
@@ -41,5 +41,7 @@ namespace quanti {
     process(data: WritableArrayLike<number>): void; // mapping pixels data
     ditherProcess(data: WritableArrayLike<number>, width: number): void; // mapping pixels data with dithering
   }
+  function srgb_to_linear(n: number): number;
+  function linear_to_srgb(n: number): number;
 }
 ```
