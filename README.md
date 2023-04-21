@@ -37,6 +37,7 @@ namespace quanti {
     palette: ArrayLike<number>[];
 
     constructor(palette: ArrayLike<number>[]);
+    mapIndex(color: ArrayLike<number>, offset: number = 0): number; // mapping one color to the palette index
     map(color: ArrayLike<number>, offset: number = 0): ArrayLike<number>; // mapping one color
     process(data: WritableArrayLike<number>): void; // mapping pixels data
     ditherProcess(data: WritableArrayLike<number>, width: number): void; // mapping pixels data with dithering

@@ -197,6 +197,23 @@ namespace quanti {
     constructor(public readonly palette: Color[]) {
       if (palette.length === 0) throw Error("empty palette");
     }
+    mapIndex(color: ArrayLike<number>, offset: number = 0): number {
+      const palette = this.palette;
+      let index = 0;
+      const first = palette[0];
+      const channelCount = first.length;
+      let distance = colorDistanceArray(color, offset, first, channelCount);
+      const n = palette.length;
+      for (let i = 1; i < n; i++) {
+        const p = palette[i];
+        const dist = colorDistanceArray(color, offset, p, channelCount);
+        if (dist < distance) {
+          distance = dist;
+          index = i;
+        }
+      }
+      return index;
+    }
     map(color: ArrayLike<number>, offset: number = 0): Color {
       const palette = this.palette;
       let target = palette[0];
