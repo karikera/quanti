@@ -230,6 +230,23 @@ namespace quanti {
       }
       return target;
     }
+    makeIndexMap(
+      data: ArrayLike<number>
+    ): Uint8Array | Uint16Array | Int32Array {
+      const channelCount = this.palette[0].length;
+      const n = Math.floor(data.length / channelCount) * channelCount;
+      const colorCount = this.palette.length;
+      const out =
+        colorCount <= 255
+          ? new Uint8Array(n)
+          : colorCount <= 65535
+          ? new Uint16Array(n)
+          : new Int32Array(n);
+      for (let i = 0; i < n; ) {
+        out[i++] = this.mapIndex(data, i);
+      }
+      return out;
+    }
     process(data: WritableArrayLike<number>): void {
       const channelCount = this.palette[0].length;
       const n = Math.floor(data.length / channelCount) * channelCount;
