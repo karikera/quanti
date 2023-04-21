@@ -234,7 +234,7 @@ namespace quanti {
       data: ArrayLike<number>
     ): Uint8Array | Uint16Array | Int32Array {
       const channelCount = this.palette[0].length;
-      const n = Math.floor(data.length / channelCount) * channelCount;
+      const n = Math.floor(data.length / channelCount);
       const colorCount = this.palette.length;
       const out =
         colorCount <= 255
