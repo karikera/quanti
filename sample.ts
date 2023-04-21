@@ -26,11 +26,17 @@ function average(data: Uint8Array) {
 }
 
 (async () => {
+  console.time("jimp");
   const image = await Jimp.read("./image/sample.png");
+  console.timeEnd("jimp");
   const data = image.bitmap.data;
   const orig = average(data);
+  console.time("quanti");
   const palette = quanti(data, 8, 4);
+  console.timeEnd("quanti");
+  console.time("process");
   palette.ditherProcess(data, image.getWidth());
+  console.timeEnd("process");
   const conv = average(data);
   await image.writeAsync("./image/sample_quantized.png");
 

@@ -5,6 +5,7 @@
     "strict": true,
     "module": "CommonJS",
     "sourceMap": true,
-    "alwaysStrict": true
+    "alwaysStrict": true,
+    "skipLibCheck": true
   }
 }

@@ -227,6 +227,7 @@ namespace quanti {
       const cc = this.palette[0].length;
       const n = Math.floor(data.length / cc) * cc;
       const widthBytes = width * cc;
+      const rightLine = widthBytes - cc;
 
       const array = new Float32Array(widthBytes * 2);
       let errors1 = array.subarray(0, widthBytes);
@@ -248,8 +249,8 @@ namespace quanti {
           x -= cc;
 
           const mappedSrgb = this.map(targetSgrb);
-          const leftExists = x === 0;
-          const rightExists = x < widthBytes;
+          const leftExists = x !== 0;
+          const rightExists = x !== rightLine;
           for (let c = 0; c < cc; c++, x++, i++) {
             data[i] = mappedSrgb[c];
             let error = targetLinear[c] - srgb_to_linear(mappedSrgb[c]);
@@ -264,7 +265,7 @@ namespace quanti {
             // Floyd–Steinberg dithering
 
             // right
-            error /= 16;
+            error /= 18; // reduce more, errors will be reducing.
             if (rightExists) {
               errors1[x + cc] += error * 7;
             }
